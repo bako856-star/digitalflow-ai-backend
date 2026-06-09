@@ -22,7 +22,29 @@ def get_dominant_colors(image, k=3):
     kmeans.fit(img_array)
     colors = kmeans.cluster_centers_.astype(int)
     return ['#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2]) for c in colors]
+def analyze_style(palette):
+    # Egyszerű elemző logika
+    analysis = []
+    if len(palette) >= 2:
+        # Példa logikára: kontraszt elemzés vagy stílus kategória
+        analysis.append("A logód dinamikus, mivel kontrasztos színeket tartalmaz.")
+    
+    analysis.append("Stílusjavaslat: Minimalista, modern vállalati megjelenés ajánlott.")
+    return " ".join(analysis)
 
+@app.post("/analyze-logo")
+async def analyze_logo(file: UploadFile = File(...)):
+    image = Image.open(io.BytesIO(await file.read())).convert('RGB')
+    palette = get_dominant_colors(image)
+    
+    # Új: Részletes szöveges elemzés generálása
+    feedback = analyze_style(palette)
+    
+    return {
+        "palette": palette,
+        "detailed_feedback": feedback,  # Ezt küldjük vissza
+        "status": "elemzés kész"
+    }
 @app.post("/analyze-logo")
 async def analyze_logo(file: UploadFile = File(...)):
     image = Image.open(io.BytesIO(await file.read())).convert('RGB')
