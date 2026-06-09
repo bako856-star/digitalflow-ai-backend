@@ -10,7 +10,7 @@ app = FastAPI()
 # Engedélyezzük a kapcsolatot a WordPress oldaladról
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Élesben itt a domain-edet érdemes megadni
+    allow_origins=["https://digitalflowstudio.hu"], # Élesben itt a domain-edet érdemes megadni
     allow_methods=["*"],
     allow_headers=["*"],
 )
