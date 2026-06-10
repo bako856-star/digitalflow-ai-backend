@@ -7,10 +7,11 @@ from sklearn.cluster import KMeans
 import io
 import cv2
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 app = FastAPI()
 
-# CORS beállítás a WordPress kommunikációhoz
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -48,12 +49,10 @@ async def analyze_logo(file: UploadFile = File(...)):
     content = await file.read()
     image = Image.open(io.BytesIO(content)).convert('RGB')
     
-    # Színelemzés
     img_array = np.array(image.resize((100, 100))).reshape(-1, 3)
     kmeans = KMeans(n_clusters=3, n_init=10).fit(img_array)
     palette = ['#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2]) for c in kmeans.cluster_centers_.astype(int)]
     
-    # Geometria és SEO
     geo_desc, geo_advice = analyze_geometry(image)
     seo_score, seo_tips = check_seo_readiness(len(content), file.filename)
     
@@ -73,31 +72,35 @@ async def generate_pdf(feedback: str, palette: str):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
     
-    # Logó beillesztése (Ügyelj rá, hogy a fájl ott legyen a GitHub repóban!)
+    # Logó beillesztése maszkkal a háttér eltávolításához
     try:
-        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=50)
+        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=50, mask='auto')
     except:
         pass
     
     p.setFont("Helvetica-Bold", 18)
     p.drawString(50, 800, "DigitalFlowStudio - Arculati Riport")
-    p.setFont("Helvetica", 12)
     
+    p.setFont("Helvetica", 12)
     y = 750
-    p.drawString(50, y, "Részletes elemzés:")
+    p.drawString(50, y, "Reszletes elemzes:")
     y -= 20
-    for line in [feedback[i:i+80] for i in range(0, len(feedback), 80)]:
+    
+    # Ékezetek elkerülése a biztonság kedvéért (átmeneti megoldás)
+    clean_feedback = feedback.replace("é", "e").replace("á", "a").replace("í", "i").replace("ó", "o").replace("ö", "o").replace("ő", "o").replace("ú", "u").replace("ü", "u").replace("ű", "u")
+    
+    for line in [clean_feedback[i:i+80] for i in range(0, len(clean_feedback), 80)]:
         p.drawString(50, y, line)
         y -= 20
         
-    p.drawString(50, y-20, f"Felismert színkódok: {palette}")
+    p.drawString(50, y-20, f"Felismert szinkodok: {palette}")
     
     # Szakértői sugallat
     p.setFont("Helvetica-Oblique", 11)
-    p.drawString(50, y-60, "Szakértői észrevétel: Az arculat finomhangolásával a márka vizuális")
-    p.drawString(50, y-75, "hatékonysága 30-40%-kal növelhető. Szívesen segítünk a megvalósításban!")
+    p.drawString(50, y-60, "Szakertoi eszrevetel: Az arculat finomhangolasaval a marka vizualis")
+    p.drawString(50, y-75, "hatekonysaga 30-40%-kal novelheto. Szivesen segitunk a megvalositasban!")
     p.setFont("Helvetica-Bold", 11)
-    p.drawString(50, y-95, "DigitalFlowStudio - Profi arculattervezés: digitalflowstudio.hu")
+    p.drawString(50, y-95, "DigitalFlowStudio - Profi arculattervezes: digitalflowstudio.hu")
     
     p.save()
     buffer.seek(0)
