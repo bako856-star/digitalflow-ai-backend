@@ -21,6 +21,26 @@ def analyze_geometry(image):
     if count > 15: return "túlzottan komplex", "részletgazdagsága rontja az emlékezetességet és a nyomdai minőséget."
     return "megfelelő", "geometriai kialakítása kellően letisztult."
 
+def analyze_name_critically(name):
+    critique = []
+    length = len(name)
+    if length < 3: critique.append("A név kritikusan rövid, hiányzik belőle a márkaidentitás.")
+    elif length > 20: critique.append("A név túl hosszú, nehezen megjegyezhető.")
+    if any(char.isdigit() for char in name): critique.append("A névben szereplő számok bizalmatlanságot szülhetnek.")
+    if not critique: return f"A '{name}' márkanév felépítése megfelelő."
+    return f"Márkanév kritika: {' '.join(critique)}"
+
+def check_seo_readiness(file_size, filename):
+    score = 100
+    suggestions = []
+    if file_size > 500000:
+        score -= 30
+        suggestions.append("A fájlméret túl nagy.")
+    if not filename.lower().endswith(('.webp', '.png')):
+        score -= 20
+        suggestions.append("Használj WebP formátumot.")
+    return score, " ".join(suggestions)
+
 @app.post("/analyze-logo")
 async def analyze_logo(file: UploadFile = File(...), company_name: str = Form("Ismeretlen")):
     content = await file.read()
@@ -31,35 +51,31 @@ async def analyze_logo(file: UploadFile = File(...), company_name: str = Form("I
     kmeans = KMeans(n_clusters=3, n_init=10).fit(img_array)
     palette = ['#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2]) for c in kmeans.cluster_centers_.astype(int)]
     
-    # Kritikus elemzés
+    # Elemzések
     geo_desc, geo_advice = analyze_geometry(image)
-    critique = [f"Logód geometriailag {geo_desc}; {geo_advice}"]
+    name_feedback = analyze_name_critically(company_name)
+    seo_score, seo_tips = check_seo_readiness(len(content), file.filename)
     
-    # Név elemzése
-    name_len = len(company_name.split())
-    if name_len > 3: critique.append("A cégnév túl hosszú, ami megnehezíti a marketingkommunikációt.")
-    elif len(company_name) < 3: critique.append("A cégnév túl rövid, bizalmatlanságot szülhet.")
+    feedback = (f"LOGÓ: A logód {geo_desc}; {geo_advice} "
+                f"NÉV: {name_feedback} "
+                f"SEO: {seo_tips} "
+                "ÖSSZEGZÉS: Jelenleg az arculat nem alkot egységes, bizalmat ébresztő egészt. Szakértői beavatkozás javasolt.")
     
-    feedback = " ".join(critique) + " Javasoljuk egy professzionális arculati felülvizsgálat elvégzését."
-    
-    return {
-        "palette": palette,
-        "detailed_feedback": feedback,
-        "seo_score": 75, # Alapértelmezett, tesztelhető
-        "status": "elemzés kész"
-    }
+    return {"palette": palette, "detailed_feedback": feedback, "seo_score": seo_score, "status": "elemzés kész"}
 
 @app.get("/generate-pdf")
 async def generate_pdf(feedback: str, palette: str):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
     try:
-        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=150, mask='auto')
+        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=50, mask='auto')
     except: pass
+    
     p.setFont("Helvetica-Bold", 18)
     p.drawString(50, 800, "DigitalFlowStudio - Kritikus Arculati Riport")
     p.setFont("Helvetica", 12)
     y = 750
+    # Ékezetmentesítés a PDF-hez a stabilitásért
     clean_fb = feedback.replace("é", "e").replace("á", "a").replace("í", "i").replace("ó", "o").replace("ö", "o").replace("ő", "o").replace("ú", "u").replace("ü", "u").replace("ű", "u")
     for line in [clean_fb[i:i+80] for i in range(0, len(clean_fb), 80)]:
         p.drawString(50, y, line); y -= 20
