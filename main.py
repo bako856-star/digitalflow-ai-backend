@@ -46,16 +46,37 @@ async def analyze_logo(file: UploadFile = File(...)):
 async def generate_pdf(feedback: str, palette: str):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
-    # Stílusos fejléc
+    
+    # 1. Logó beillesztése (Feltétel: a fájl ott legyen a GitHub repódban!)
+    # Ha nincs ott a logó fájl, a program hibát fog dobni, ezért ezt a sort 
+    # csak akkor hagyd benne, ha már feltöltötted a DigitalFlowStudio_basiclogo_purple_3.png fájlt a GitHubra.
+    try:
+        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=50)
+    except:
+        pass # Ha nem találja a logót, továbbmegy hiba nélkül
+    
     p.setFont("Helvetica-Bold", 18)
-    p.drawString(50, 800, "DigitalFlowStudio - Szakértői Arculati Riport")
+    p.drawString(50, 800, "DigitalFlowStudio - Arculati Riport")
     p.setFont("Helvetica", 12)
-    # Szöveg tördelése (egyszerű változat)
+    
+    # 2. Elemzés szövegének tördelése
     y = 750
+    p.drawString(50, y, "Részletes elemzés:")
+    y -= 20
+    # Szöveg automatikus tördelése, hogy ne lógjon le a lapról
     for line in [feedback[i:i+80] for i in range(0, len(feedback), 80)]:
         p.drawString(50, y, line)
         y -= 20
+        
     p.drawString(50, y-20, f"Felismert színkódok: {palette}")
+    
+    # 3. Finom szakértői sugallat
+    p.setFont("Helvetica-Oblique", 11)
+    p.drawString(50, y-60, "Szakértői észrevétel: Az arculat finomhangolásával a márka vizuális")
+    p.drawString(50, y-75, "hatékonysága 30-40%-kal növelhető. Szívesen segítünk a megvalósításban!")
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y-95, "DigitalFlowStudio - Profi arculattervezés: digitalflowstudio.hu")
+    
     p.save()
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=riport.pdf"})
