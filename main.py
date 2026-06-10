@@ -74,7 +74,7 @@ async def generate_pdf(feedback: str, palette: str):
     
     # Logó beillesztése maszkkal a háttér eltávolításához
     try:
-        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=50, mask='auto')
+        p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=150, mask='auto')
     except:
         pass
     
