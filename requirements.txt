@@ -5,3 +5,4 @@ numpy
 scikit-learn
 python-multipart
 opencv-python-headless
+reportlab
