@@ -12,34 +12,37 @@ app = FastAPI()
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-def analyze_geometry(image):
+def get_dynamic_feedback(image, name, palette):
+    # Geometria elemzés
     img_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(cv2.Canny(gray, 50, 150), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Logó állapot leírása
     count = len(contours)
-    if count > 15: return "túlzottan komplex", "részletgazdagsága rontja az emlékezetességet és a nyomdai minőséget."
-    return "megfelelő", "geometriai kialakítása kellően letisztult."
+    if count < 5: logo_msg = "letisztult, modern és könnyen skálázható"
+    elif count < 20: logo_msg = "kiegyensúlyozott, professzionális hatású"
+    else: logo_msg = "túlzottan komplex, ami rontja a digitális megjelenítést és az emlékezetességet"
+    
+    # Név elemzés
+    name_len = len(name)
+    if name_len < 5: name_msg = "rövid és ütős, remekül megjegyezhető"
+    elif name_len > 15: name_msg = "hosszú, ami kihívást jelenthet a tipográfiában"
+    else: name_msg = "kiegyensúlyozott, jól illeszkedik a modern márkák közé"
+    
+    # Szín elemzés
+    val = int(palette[0][1:3], 16)
+    color_msg = "erőt és dinamizmust sugároz" if val > 128 else "visszafogott, bizalmat ébresztő"
+    
+    return (f"LOGÓ: A logód {logo_msg}. NÉV: A '{name}' márkaneved {name_msg}. "
+            f"SZÍNEK: A domináns {palette[0]} szín {color_msg}. "
+            "ÖSSZEGZÉS: Bár a márka alapjai megvannak, egy professzionális finomhangolás, "
+            "az arculati egység megteremtése és a technikai optimalizálás 30-40%-kal növelheti a hatékonyságodat.")
 
-def analyze_name_critically(name):
-    critique = []
-    length = len(name)
-    if length < 3: critique.append("A név kritikusan rövid, hiányzik belőle a márkaidentitás.")
-    elif length > 20: critique.append("A név túl hosszú, nehezen megjegyezhető.")
-    if any(char.isdigit() for char in name): critique.append("A névben szereplő számok bizalmatlanságot szülhetnek.")
-    if not critique: return f"A '{name}' márkanév felépítése megfelelő."
-    return f"Márkanév kritika: {' '.join(critique)}"
-
-def check_seo_readiness(file_size, filename):
+def check_seo_readiness(file_size):
     score = 100
-    suggestions = []
-    if file_size > 500000:
-        score -= 30
-        suggestions.append("A fájlméret túl nagy.")
-    if not filename.lower().endswith(('.webp', '.png')):
-        score -= 20
-        suggestions.append("Használj WebP formátumot.")
-    return score, " ".join(suggestions)
+    if file_size > 500000: score -= 30
+    return score
 
 @app.post("/analyze-logo")
 async def analyze_logo(file: UploadFile = File(...), company_name: str = Form("Ismeretlen")):
@@ -52,14 +55,8 @@ async def analyze_logo(file: UploadFile = File(...), company_name: str = Form("I
     palette = ['#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2]) for c in kmeans.cluster_centers_.astype(int)]
     
     # Elemzések
-    geo_desc, geo_advice = analyze_geometry(image)
-    name_feedback = analyze_name_critically(company_name)
-    seo_score, seo_tips = check_seo_readiness(len(content), file.filename)
-    
-    feedback = (f"LOGÓ: A logód {geo_desc}; {geo_advice} "
-                f"NÉV: {name_feedback} "
-                f"SEO: {seo_tips} "
-                "ÖSSZEGZÉS: Jelenleg az arculat nem alkot egységes, bizalmat ébresztő egészt. Szakértői beavatkozás javasolt.")
+    feedback = get_dynamic_feedback(image, company_name, palette)
+    seo_score = check_seo_readiness(len(content))
     
     return {"palette": palette, "detailed_feedback": feedback, "seo_score": seo_score, "status": "elemzés kész"}
 
@@ -67,6 +64,8 @@ async def analyze_logo(file: UploadFile = File(...), company_name: str = Form("I
 async def generate_pdf(feedback: str, palette: str):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
+    
+    # Logó beillesztése (ha létezik a fájl)
     try:
         p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=150, mask='auto')
     except: pass
@@ -75,11 +74,11 @@ async def generate_pdf(feedback: str, palette: str):
     p.drawString(50, 800, "DigitalFlowStudio - Kritikus Arculati Riport")
     p.setFont("Helvetica", 12)
     y = 750
-    # Ékezetmentesítés a PDF-hez a stabilitásért
+    # Ékezetmentesítés a PDF stabilitásért
     clean_fb = feedback.replace("é", "e").replace("á", "a").replace("í", "i").replace("ó", "o").replace("ö", "o").replace("ő", "o").replace("ú", "u").replace("ü", "u").replace("ű", "u")
     for line in [clean_fb[i:i+80] for i in range(0, len(clean_fb), 80)]:
         p.drawString(50, y, line); y -= 20
-    p.drawString(50, y-20, f"Szinek: {palette}")
+    p.drawString(50, y-20, f"Felismert szinkodok: {palette}")
     p.save()
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=riport.pdf"})
