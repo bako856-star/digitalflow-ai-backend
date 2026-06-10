@@ -10,7 +10,6 @@ import random
 from reportlab.pdfgen import canvas
 
 app = FastAPI()
-
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 def check_vectorization_need(image, file_size):
@@ -33,17 +32,17 @@ def get_dynamic_feedback(image, name, palette, file_size):
     name_critics = [
         f"A '{name}' név remekül hangzik, de tipográfiailag érdemes lehet modernizálni.",
         f"A '{name}' márkaneved erős alapot ad, bár az arányok finomhangolása kulcsfontosságú.",
-        f"A '{name}' név karakteres, de társíts hozzá egy ikonikusabb betűtípust az erősebb hatásért."
+        f"A '{name}' név karakteres, de társíts hozzá egy ikonikusabb betűtípust."
     ]
     name_feedback = random.choice(name_critics)
     
     val = int(palette[0][1:3], 16)
     color_vibe = "energikus és vibráló" if val > 128 else "megfontolt és bizalmat sugárzó"
     
-    return (f"DIAGNÓZIS: A logód {logo_style}, vizuális komplexitása {len(contours)} kontúr. "
-            f"MINŐSÉG: {res_msg} "
-            f"MÁRKANÉV: {name_feedback} "
-            f"SZÍN: A palettád {color_vibe} kisugárzással bír. "
+    return (f"LOGÓ ELEMZÉS EREDMÉNYE: A logód {logo_style}, vizuális komplexitása {len(contours)} kontúr.\n\n"
+            f"MÁRKANÉV ELEMZÉS EREDMÉNYE: {name_feedback}\n\n"
+            f"VEKTORIZÁCIÓ SZÜKSÉGESSÉGE: {res_msg}\n\n"
+            f"SZÍNPSZICHOLÓGIA: A palettád {color_vibe} kisugárzással bír.\n\n"
             "ÖSSZEGZÉS: Egy professzionális arculati audit 40%-kal javíthatja a márka vizuális bizalmi indexét.")
 
 @app.post("/analyze-logo")
@@ -68,22 +67,21 @@ async def generate_pdf(feedback: str, palette: str):
     p.setFont("Helvetica-Bold", 18)
     p.drawString(170, 800, "DigitalFlowStudio - Arculati Riport")
     
-    p.setFont("Helvetica", 12)
     text_object = p.beginText(50, 700)
     text_object.setFont("Helvetica", 12)
-    
     clean_fb = feedback.replace("é", "e").replace("á", "a").replace("í", "i").replace("ó", "o").replace("ö", "o").replace("ő", "o").replace("ú", "u").replace("ü", "u").replace("ű", "u")
     
-    # Tördelt szöveg kezelés
-    words = clean_fb.split(" ")
-    current_line = ""
-    for word in words:
-        if p.stringWidth(current_line + " " + word, "Helvetica", 12) < 500:
-            current_line += " " + word
-        else:
-            text_object.textLine(current_line)
-            current_line = word
-    text_object.textLine(current_line)
+    for paragraph in clean_fb.split("\n\n"):
+        words = paragraph.split(" ")
+        current_line = ""
+        for word in words:
+            if p.stringWidth(current_line + " " + word, "Helvetica", 12) < 500:
+                current_line += " " + word
+            else:
+                text_object.textLine(current_line)
+                current_line = word
+        text_object.textLine(current_line)
+        text_object.textLine("") 
     p.drawText(text_object)
     
     p.setFont("Helvetica-Bold", 10)
