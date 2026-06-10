@@ -23,14 +23,30 @@ def get_dominant_colors(image, k=3):
     colors = kmeans.cluster_centers_.astype(int)
     return ['#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2]) for c in colors]
 def analyze_style(palette):
-    # Egyszerű elemző logika
-    analysis = []
-    if len(palette) >= 2:
-        # Példa logikára: kontraszt elemzés vagy stílus kategória
-        analysis.append("A logód dinamikus, mivel kontrasztos színeket tartalmaz.")
+    # Színkódok HEX-ből RGB-vé alakítása a számításhoz
+    def hex_to_rgb(hex):
+        hex = hex.lstrip('#')
+        return [int(hex[i:i+2], 16) for i in (0, 2, 4)]
+
+    rgb_colors = [hex_to_rgb(c) for c in palette]
     
-    analysis.append("Stílusjavaslat: Minimalista, modern vállalati megjelenés ajánlott.")
-    return " ".join(analysis)
+    # 1. Értékelés: Színvilág hangulata
+    avg_red = sum(c[0] for c in rgb_colors) / len(rgb_colors)
+    if avg_red > 150:
+        mood = "energikus, szenvedélyes"
+    else:
+        mood = "nyugodt, bizalomgerjesztő"
+        
+    # 2. Értékelés: Kontraszt/Változatosság
+    if len(set(palette)) < 2:
+        complexity = "minimalista"
+    else:
+        complexity = "sokszínű és figyelemfelkeltő"
+
+    return (f"A logód a {mood} hangulatot sugározza. "
+            f"Az általunk észlelt {complexity} színvilág kiválóan alkalmas "
+            "a márka első benyomásának megalapozására. "
+            "Tipp: Ügyelj arra, hogy a weboldalad háttérszíne ne nyomja el ezeket a tónusokat!")
 
 @app.post("/analyze-logo")
 async def analyze_logo(file: UploadFile = File(...)):
