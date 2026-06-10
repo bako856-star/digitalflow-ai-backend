@@ -10,67 +10,89 @@ from reportlab.pdfgen import canvas
 
 app = FastAPI()
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# CORS beállítás a WordPress kommunikációhoz
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def analyze_logo_depth(image):
+def analyze_geometry(image):
     img_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     count = len(contours)
-    if count < 3: return "minimalista és ikonikus", "Kiválóan mutat kisméretű felületeken, mint a közösségi média profilképek."
-    elif count < 10: return "kiegyensúlyozott és professzionális", "Ideális egyensúlyt teremt a részletesség és az olvashatóság között."
-    else: return "komplex és részletgazdag", "Nagyszerű a történetmesélésre, de nyomdai előkészítésnél figyelj a részletek vesztésére."
+    if count < 3: 
+        return "minimalista és ikonikus", "Kiválóan mutat kisméretű felületeken."
+    elif count < 10: 
+        return "kiegyensúlyozott és professzionális", "Ideális egyensúlyt teremt a részletesség és az olvashatóság között."
+    else: 
+        return "komplex és részletgazdag", "Nagyszerű a történetmesélésre, de nyomdai előkészítésnél figyelj a részletek vesztésére."
+
+def check_seo_readiness(file_size, filename):
+    score = 100
+    suggestions = []
+    if file_size > 500000:
+        score -= 30
+        suggestions.append("A fájlméret túl nagy; optimalizáld a betöltési sebesség érdekében.")
+    if not filename.lower().endswith(('.webp', '.png')):
+        score -= 20
+        suggestions.append("Használj WebP formátumot a jobb Google helyezésért.")
+    return score, " ".join(suggestions)
 
 @app.post("/analyze-logo")
 async def analyze_logo(file: UploadFile = File(...)):
-    image = Image.open(io.BytesIO(await file.read())).convert('RGB')
+    content = await file.read()
+    image = Image.open(io.BytesIO(content)).convert('RGB')
     
-    # Színelemzés - Súlyozottabb
+    # Színelemzés
     img_array = np.array(image.resize((100, 100))).reshape(-1, 3)
     kmeans = KMeans(n_clusters=3, n_init=10).fit(img_array)
     palette = ['#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2]) for c in kmeans.cluster_centers_.astype(int)]
     
-    # Geometria + Személyre szabott szöveg
-    geo_desc, geo_advice = analyze_logo_depth(image)
+    # Geometria és SEO
+    geo_desc, geo_advice = analyze_geometry(image)
+    seo_score, seo_tips = check_seo_readiness(len(content), file.filename)
     
-    feedback = (f"Elemzésünk alapján a logód {geo_desc}. "
-                f"A domináns {palette[0]} szín mélységet ad a márkádnak. "
-                f"{geo_advice} A színpalettád további elemei ({', '.join(palette[1:])}) "
-                "lehetőséget adnak a kontrasztos kiemelésekre.")
+    feedback = (f"A logód stílusa: {geo_desc}. {geo_advice} "
+                f"A domináns {palette[0]} szín modern karaktert ad. "
+                f"SEO státusz: {seo_score}/100. {seo_tips}")
     
-    return {"palette": palette, "detailed_feedback": feedback, "status": "elemzés kész"}
+    return {
+        "palette": palette,
+        "detailed_feedback": feedback,
+        "seo_score": seo_score,
+        "status": "elemzés kész"
+    }
 
 @app.get("/generate-pdf")
 async def generate_pdf(feedback: str, palette: str):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
     
-    # 1. Logó beillesztése (Feltétel: a fájl ott legyen a GitHub repódban!)
-    # Ha nincs ott a logó fájl, a program hibát fog dobni, ezért ezt a sort 
-    # csak akkor hagyd benne, ha már feltöltötted a DigitalFlowStudio_basiclogo_purple_3.png fájlt a GitHubra.
+    # Logó beillesztése (Ügyelj rá, hogy a fájl ott legyen a GitHub repóban!)
     try:
         p.drawImage("DigitalFlowStudio_basiclogo_purple_3.png", 400, 750, width=150, height=50)
     except:
-        pass # Ha nem találja a logót, továbbmegy hiba nélkül
+        pass
     
     p.setFont("Helvetica-Bold", 18)
     p.drawString(50, 800, "DigitalFlowStudio - Arculati Riport")
     p.setFont("Helvetica", 12)
     
-    # 2. Elemzés szövegének tördelése
     y = 750
     p.drawString(50, y, "Részletes elemzés:")
     y -= 20
-    # Szöveg automatikus tördelése, hogy ne lógjon le a lapról
     for line in [feedback[i:i+80] for i in range(0, len(feedback), 80)]:
         p.drawString(50, y, line)
         y -= 20
         
     p.drawString(50, y-20, f"Felismert színkódok: {palette}")
     
-    # 3. Finom szakértői sugallat
+    # Szakértői sugallat
     p.setFont("Helvetica-Oblique", 11)
     p.drawString(50, y-60, "Szakértői észrevétel: Az arculat finomhangolásával a márka vizuális")
     p.drawString(50, y-75, "hatékonysága 30-40%-kal növelhető. Szívesen segítünk a megvalósításban!")
