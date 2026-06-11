@@ -7,3 +7,4 @@ python-multipart
 reportlab
 beautifulsoup4
 requests
+opencv-python-headless
