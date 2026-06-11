@@ -31,22 +31,34 @@ def get_dynamic_feedback(image, name, palette, file_size):
     _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    _, res_msg = check_vectorization_need(image, file_size)
     complexity = len(contours)
+    is_low_res, res_msg = check_vectorization_need(image, file_size)
+    tech_status = res_msg if is_low_res else "Technikailag rendben van, de webes megjelenésnél további optimalizálás (SVG/WebP) javasolt."
     
-    if complexity < 10: profile = "A logód a minimalizmus jegyében született, ami bizalmat és tisztaságot sugároz."
-    elif complexity < 50: profile = "A logód egyensúlyban tartja a részletgazdagságot és a modern olvashatóságot."
-    else: profile = "Ez egy erősen részletgazdag alkotás, ami művészi, de digitális használatban figyelmet igényel."
+    profiles = [
+        ("túl sokat akar mondani", "Túl sok apró vizuális részlettel operál, ami a 'kevesebb több' elvét sérti. A logó elveszíti az ikonikus jellegét kisméretű (pl. mobil) megjelenésnél."),
+        ("technológiailag elavult", "A formai megoldások a 2010-es évek trendjeit idézik, ami egy modern, 2026-os környezetben bizalomvesztést okozhat."),
+        ("bizonytalan vizuális identitás", "A logó karakterkészlete és a grafikai elemek aránya nem támogatja a márka egységességét. Hiányzik a fókuszpont.")
+    ]
     
-    name_len = len(name)
-    synergy = "harmonikus" if (name_len < 10 and complexity < 30) else "kalandos, de újraértelmezésre érdemes"
-    
-    return (f"--- ARCULATI ELEMZÉS ---\n\n"
-            f"Vizuális Profil: {profile}\n\n"
-            f"Név-Logó Szinergia: A '{name}' márkaneved a jelenlegi logóval {synergy} párost alkot.\n\n"
-            f"Technikai Diagnózis: {res_msg}\n\n"
-            f"Színélmény: A {', '.join(palette)} paletta egy {random.choice(['innovatív', 'klasszikus', 'bátor', 'stabilitást kereső'])} márkát ígér.\n\n"
-            "ÖSSZEGZÉS: A diagnózis alapján a márka egyedi karakterrel bír. A 'DigitalFlowStudio' mint partner a vizuális kommunikációt 40%-kal hatékonyabbá teheti egy finomhangolt arculati tervvel.")
+    if complexity < 15:
+        profile_title, profile_desc = ("minimalista", "A minimalizmus veszélye: a logó könnyen összetéveszthető más márkákkal. Hiányzik belőle az egyedi, megkülönböztető karakter.")
+    else:
+        profile_title, profile_desc = random.choice(profiles)
+        
+    color_val = int(palette[0][1:3], 16)
+    color_audit = "Vigyázat: " if color_val < 50 or color_val > 200 else ""
+    color_audit += f"a választott {palette[0]} árnyalat " + random.choice([
+        "túl agresszív a mai felhasználói élmény követelményekhez.",
+        "könnyen beleolvad a háttérbe, így gyenge a konverziós potenciálja.",
+        "színkódja alapján nem áll készen a digitális eszközök közötti konzisztens megjelenésre."
+    ])
+
+    return (f"LOGÓ ELEMZÉS EREDMÉNYE: {profile_title.capitalize()}. {profile_desc}\n\n"
+            f"MÁRKANÉV ELEMZÉS EREDMÉNYE: A(z) '{name}' név tipográfiája nem elég karakteres a logó grafikai súlyához.\n\n"
+            f"VEKTORIZÁCIÓ SZÜKSÉGESSÉGE: {tech_status}\n\n"
+            f"SZÍNPSZICHOLÓGIA: {color_audit}\n\n"
+            "ÖSSZEGZÉS: A jelenlegi állapot 10-es skálán maximum 4-es. A 'DigitalFlowStudio' által kínált márkaépítési audit 60%-kal növelheti a márka vizuális hatékonyságát.")
 
 @app.post("/analyze-logo")
 async def analyze_logo(file: UploadFile = File(...), company_name: str = Form("Ismeretlen")):
